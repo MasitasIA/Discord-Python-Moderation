@@ -1,0 +1,25 @@
+# --- SEGURIDAD (CRÍTICO) ---
+.env
+
+# --- PYTHON ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- BASES DE DATOS (JSON) ---
+prefixes.json
+autoroles.json
+botroles.json
+welcomemessages.json
+farewellmessages.json
+logchannels.json
+welcomelogchannels.json
+
+# --- ENTORNOS VIRTUALES ---
+venv/
+env/
+.venv/
+
+# --- IDEs ---
+.vscode/
+.idea/
