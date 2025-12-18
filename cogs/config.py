@@ -3,7 +3,7 @@ from discord.ext import commands
 import sys
 
 sys.path.append("..") 
-from utils import load_json, save_json
+from utils import update_config, get_config
 
 class Config(commands.Cog):
     def __init__(self, bot):
@@ -12,10 +12,11 @@ class Config(commands.Cog):
     # --- EVENTO: ASIGNAR AUTO-ROL ---
     @commands.Cog.listener()
     async def on_member_join(self, member):
+        config = await get_config(member.guild.id)
+
         if member.bot:
             # Lógica para Bots
-            botroles = load_json("botroles.json")
-            role_id = botroles.get(str(member.guild.id))
+            role_id = config['autorole_bot']
             if role_id:
                 role = member.guild.get_role(role_id)
                 if role:
@@ -25,8 +26,7 @@ class Config(commands.Cog):
                         print(f"Faltan permisos para dar rol de bot en {member.guild.name}")
         else:
             # Lógica para Humanos
-            autoroles = load_json("autoroles.json")
-            role_id = autoroles.get(str(member.guild.id))
+            role_id = config['autorole_human']
             if role_id:
                 role = member.guild.get_role(role_id)
                 if role:
@@ -63,9 +63,7 @@ class Config(commands.Cog):
     @commands.hybrid_command(name="setprefix", description="Cambia el prefijo del bot.")
     @commands.has_permissions(administrator=True)
     async def setprefix(self, ctx, new_prefix: str):
-        prefixes = load_json("prefixes.json")
-        prefixes[str(ctx.guild.id)] = new_prefix
-        save_json("prefixes.json", prefixes)
+        await update_config(ctx.guild.id, "prefix", new_prefix)
         
         embed = discord.Embed(title="Prefijo Actualizado", description=f"✅ Nuevo prefijo: `{new_prefix}`", color=0x4D8BD3)
         await ctx.send(embed=embed)
@@ -74,9 +72,7 @@ class Config(commands.Cog):
     @commands.hybrid_command(name="setautorole", description="Establece el rol automático para humanos.")
     @commands.has_permissions(administrator=True)
     async def setautorole(self, ctx, role: discord.Role):
-        autoroles = load_json("autoroles.json")
-        autoroles[str(ctx.guild.id)] = role.id
-        save_json("autoroles.json", autoroles)
+        await update_config(ctx.guild.id, "autorole_human", role.id)
         
         await ctx.send(f"✅ Auto-rol configurado: {role.mention}")
 
@@ -84,45 +80,27 @@ class Config(commands.Cog):
     @commands.hybrid_command(name="disableautorole", description="Desactiva el auto-rol.")
     @commands.has_permissions(administrator=True)
     async def disableautorole(self, ctx):
-        autoroles = load_json("autoroles.json")
-        if str(ctx.guild.id) in autoroles:
-            autoroles.pop(str(ctx.guild.id))
-            save_json("autoroles.json", autoroles)
-            await ctx.send("✅ Auto-rol desactivado.")
-        else:
-            await ctx.send("⚠️ No había auto-rol configurado.")
+        await update_config(ctx.guild.id, "autorole_human", None)
+        await ctx.send("✅ Auto-rol desactivado.")
 
     # Comando para desactivar el auto-rol para bots
     @commands.hybrid_command(name="disablebotrole", description="Desactiva el auto-rol para bots en este servidor.")
     @commands.has_permissions(administrator=True)
     async def disablebotrole(self, ctx):
-        botroles = load_json("botroles.json")
+        await update_config(ctx.guild.id, "autorole_bot", None)
 
-        if str(ctx.guild.id) in botroles:
-            botroles.pop(str(ctx.guild.id))
-            save_json("botroles.json", botroles)
-
-            embed = discord.Embed(
-                title="Auto-Rol Para Bots Desactivado",
-                description="✅ Auto-rol para bots desactivado correctamente.",
-                color=discord.Color.red()
-            )
-            await ctx.send(embed=embed)
-        else:
-            embed = discord.Embed(
-                title="Auto-Rol Para Bots No Configurado",
-                description="⚠️ No había ningún auto-rol para bots configurado.",
-                color=discord.Color.orange()
-            )
-            await ctx.send(embed=embed)
+        embed = discord.Embed(
+            title="Auto-Rol Para Bots Desactivado",
+            description="✅ Auto-rol para bots desactivado correctamente.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
 
     # Comando para establecer el rol automático para bots
     @commands.hybrid_command(name="setbotrole", description="Establece el rol automático para bots.")
     @commands.has_permissions(administrator=True)
     async def setbotrole(self, ctx, role: discord.Role):
-        botroles = load_json("botroles.json")
-        botroles[str(ctx.guild.id)] = role.id
-        save_json("botroles.json", botroles)
+        await update_config(ctx.guild.id, "autorole_bot", role.id)
         
         await ctx.send(f"✅ Auto-rol de bots configurado: {role.mention}")
 
@@ -130,10 +108,10 @@ class Config(commands.Cog):
     @commands.hybrid_command(name="viewautorole", description="Muestra los roles de auto-rol configurados en este servidor.")
     @commands.has_permissions(administrator=True)
     async def viewautorole(self, ctx):
-        autoroles = load_json("autoroles.json")
-        botroles = load_json("botroles.json")
-        human_role_id = autoroles.get(str(ctx.guild.id))
-        bot_role_id = botroles.get(str(ctx.guild.id))
+        config = await get_config(ctx.guild.id)
+        
+        human_role_id = config['autorole_human']
+        bot_role_id = config['autorole_bot']
 
         human_role = ctx.guild.get_role(human_role_id) if human_role_id else None
         bot_role = ctx.guild.get_role(bot_role_id) if bot_role_id else None

@@ -2,17 +2,17 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-from utils import load_json, save_json
+from utils import init_db, get_config
 
 # --- CONFIGURACIÓN INICIAL ---
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-def get_prefix(bot, message):
+async def get_prefix(bot, message):
     if not message.guild:
         return "!"
-    prefixes = load_json("prefixes.json")
-    return prefixes.get(str(message.guild.id), "!")
+    config = await get_config(message.guild.id)
+    return config['prefix'] or "!"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -35,7 +35,8 @@ async def load_extensions():
 @bot.event
 async def on_ready():
     print(f'✅ Bot conectado como: {bot.user.name} (ID: {bot.user.id})')
-    await load_extensions() # Carga welcome.py y config.py automáticamente
+    await init_db()
+    await load_extensions()
     
     try:
         synced = await bot.tree.sync()
@@ -47,25 +48,12 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
-    prefixes = load_json("prefixes.json")
-    prefixes[str(guild.id)] = "!"
-    save_json("prefixes.json", prefixes)
+    await get_config(guild.id)
     print(f"Nuevo servidor: {guild.name}")
 
 @bot.event
 async def on_guild_remove(guild):
-    # Limpieza general de datos
-    files_to_clean = [
-        "prefixes.json", "autoroles.json", "botroles.json",
-        "welcomelogchannels.json", "welcomemessages.json", 
-        "farewellmessages.json", "logchannels.json"
-    ]
-    for filename in files_to_clean:
-        data = load_json(filename)
-        if str(guild.id) in data:
-            data.pop(str(guild.id))
-            save_json(filename, data)
-    print(f"Datos limpiados del servidor: {guild.name}")
+    print(f"El bot ha sido removido del servidor: {guild.name}")
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -81,7 +69,7 @@ async def on_command_error(ctx, error):
 # --- COMANDOS DE ADMINISTRACIÓN DEL BOT ---
 
 # Comando para ver la ayuda del bot
-@bot.hybrid_command(name="help", description="Muestra los comandos disponibles del bot.")
+@bot.hybrid_command(name="bothelp", description="Muestra los comandos disponibles del bot.")
 async def help(ctx):
     embed = discord.Embed(
         title="🤖 Ayuda del Bot",

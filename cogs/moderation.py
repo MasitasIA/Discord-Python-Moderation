@@ -149,7 +149,10 @@ class Moderation(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     async def clear(self, ctx, amount: int):
         if amount < 1: 
-            deleted = await ctx.channel.purge(limit=amount + 1)
+             await ctx.send("Debes borrar al menos 1 mensaje.")
+             return
+        
+        deleted = await ctx.channel.purge(limit=amount + 1)
         await ctx.send(f"🧹 **{len(deleted)-1}** mensajes borrados.", delete_after=5)
 
     # Comando para bloquear un canal

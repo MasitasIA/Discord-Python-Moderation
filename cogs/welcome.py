@@ -4,7 +4,7 @@ import sys
 
 # Importamos las funciones desde la carpeta anterior
 sys.path.append("..") 
-from utils import load_json, save_json
+from utils import get_config, update_config
 
 class Welcome(commands.Cog):
     def __init__(self, bot):
@@ -15,11 +15,10 @@ class Welcome(commands.Cog):
     # Evento de bienvenida
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        welcomemessages = load_json("welcomemessages.json")
-        welcomelogchannels = load_json("welcomelogchannels.json")
-        channel_id = welcomelogchannels.get(str(member.guild.id))
+        config = await get_config(member.guild.id)
+        channel_id = config['welcome_channel']
 
-        raw_message = welcomemessages.get(str(member.guild.id), "¡Bienvenido al servidor, {mencion}!")
+        raw_message = config['welcome_message'] if config['welcome_message'] else "¡Bienvenido al servidor, {mencion}!"
         welcome_message = raw_message.replace("{usuario}", member.name) \
                                      .replace("{mencion}", member.mention) \
                                      .replace("{servidor}", member.guild.name) \
@@ -40,11 +39,10 @@ class Welcome(commands.Cog):
     # Evento de despedida
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        farewellmessages = load_json("farewellmessages.json")
-        welcomelogchannels = load_json("welcomelogchannels.json")
-        channel_id = welcomelogchannels.get(str(member.guild.id))
+        config = await get_config(member.guild.id)
+        channel_id = config['welcome_channel']
 
-        raw_message = farewellmessages.get(str(member.guild.id), "¡{usuario} se ha ido del servidor!")
+        raw_message = config['farewell_message'] if config['farewell_message'] else "¡{usuario} se ha ido del servidor!"
         farewell_message = raw_message.replace("{usuario}", member.name) \
                                       .replace("{mencion}", member.mention) \
                                       .replace("{servidor}", member.guild.name) \
@@ -81,9 +79,7 @@ class Welcome(commands.Cog):
     @commands.hybrid_command(name="setwelcomelogchannel", description="Establece el canal de bienvenida y despedida del servidor.")
     @commands.has_permissions(administrator=True)
     async def setwelcomelogchannel(self, ctx, channel: discord.TextChannel):
-        welcomelogchannels = load_json("welcomelogchannels.json")
-        welcomelogchannels[str(ctx.guild.id)] = channel.id
-        save_json("welcomelogchannels.json", welcomelogchannels)
+        await update_config(ctx.guild.id, "welcome_channel", channel.id)
         
         embed = discord.Embed(
             title="Canal de Bienvenida/Despedida Establecido",
@@ -97,10 +93,10 @@ class Welcome(commands.Cog):
     @commands.hybrid_command(name="disablewelcomelogchannel", description="Desactiva el canal de bienvenida y despedida del servidor.")
     @commands.has_permissions(administrator=True)
     async def disablewelcomelogchannel(self,ctx):
-        welcomelogchannels = load_json("welcomelogchannels.json")
-        if str(ctx.guild.id) in welcomelogchannels:
-            welcomelogchannels.pop(str(ctx.guild.id))
-            save_json("welcomelogchannels.json", welcomelogchannels)
+        config = await get_config(ctx.guild.id)
+        
+        if config['welcome_channel']:
+            await update_config(ctx.guild.id, "welcome_channel", None)
             
             embed = discord.Embed(
                 title="Canal de Bienvenida/Despedida Desactivado",
@@ -108,13 +104,20 @@ class Welcome(commands.Cog):
                 color=discord.Color.red()
             )
             await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(
+                title="Canal de Bienvenida/Despedida No Configurado",
+                description="⚠️ No hay ningún canal de bienvenida y despedida configurado.",
+                color=discord.Color.orange()
+            )
+            await ctx.send(embed=embed)
 
     # Comando para ver el canal de Bienvenida/Despedida configurado
     @commands.hybrid_command(name="viewwelcomelogchannel", description="Muestra el canal de bienvenida y despedida configurado en este servidor.")
     @commands.has_permissions(administrator=True)
     async def viewwelcomelogchannel(self, ctx):
-        welcomelogchannels = load_json("welcomelogchannels.json")
-        channel_id = welcomelogchannels.get(str(ctx.guild.id))
+        config = await get_config(ctx.guild.id)
+        channel_id = config['welcome_channel']
         if channel_id:
             channel = ctx.guild.get_channel(channel_id)
             if channel:
@@ -142,9 +145,7 @@ class Welcome(commands.Cog):
     @commands.hybrid_command(name="setwelcomemessage", description="Establece el mensaje de bienvenida para nuevos miembros.")
     @commands.has_permissions(administrator=True)
     async def setwelcomemessage(self, ctx, *, message: str):
-        welcomemessages = load_json("welcomemessages.json")
-        welcomemessages[str(ctx.guild.id)] = message
-        save_json("welcomemessages.json", welcomemessages)
+        await update_config(ctx.guild.id, "welcome_message", message)
 
         embed = discord.Embed(
             title="Mensaje de Bienvenida Establecido",
@@ -177,9 +178,7 @@ class Welcome(commands.Cog):
     @commands.hybrid_command(name="setfarewellmessage", description="Establece el mensaje de despedida para miembros que se van.")
     @commands.has_permissions(administrator=True)
     async def setfarewellmessage(self, ctx, *, message: str):
-        farewellmessages = load_json("farewellmessages.json")
-        farewellmessages[str(ctx.guild.id)] = message
-        save_json("farewellmessages.json", farewellmessages)
+        await update_config(ctx.guild.id, "farewell_message", message)
 
         embed = discord.Embed(
             title="Mensaje de Despedida Establecido",
