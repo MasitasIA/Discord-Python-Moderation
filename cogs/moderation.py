@@ -11,6 +11,35 @@ class Moderation(commands.Cog):
 
     # --- COMANDOS DE MODERACIÓN ---
 
+    # Comando para ver los comandos de moderación
+    @commands.hybrid_command(name="modhelp", description="Muestra los comandos de moderación disponibles.")
+    async def modhelp(self, ctx):
+        embed = discord.Embed(
+            title="🛡️ Comandos de Moderación",
+            description="Lista de herramientas disponibles para moderadores.",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Usuarios", value=(
+            "`/kick [user] [razón]` - Expulsa a un miembro.\n"
+            "`/ban [user] [razón]` - Banea a un miembro.\n"
+            "`/unban [id]` - Desbanea a un usuario.\n"
+            "`/timeout [user] [min] [razón]` - Aísla a un usuario.\n"
+            "`/untimeout [user]` - Quita el aislamiento.\n"
+            "`/nick [user] [nombre]` - Cambia el apodo (o resetea).\n"
+            "`/userinfo [user]` - Ver datos de la cuenta."
+        ), inline=False)
+        
+        embed.add_field(name="Chat y Canales", value=(
+            "`/clear [cantidad]` - Borra mensajes.\n"
+            "`/lock` - Bloquea el canal actual.\n"
+            "`/unlock` - Desbloquea el canal actual.\n"
+            "`/slowmode [segundos]` - Pone modo lento."
+        ), inline=False)
+        
+        await ctx.send(embed=embed)
+
+    # --- COMANDOS SOBRE USUARIOS ---
+
     # Comando para expulsar a un miembro
     @commands.hybrid_command(name="kick", description="Expulsa a un miembro.")
     @commands.has_permissions(kick_members=True)
@@ -69,6 +98,52 @@ class Moderation(commands.Cog):
         except discord.Forbidden:
             await ctx.send("❌ No tengo permisos.")
 
+    # Comando para quitar el aislamiento (untimeout)
+    @commands.hybrid_command(name="untimeout", description="Quita el aislamiento a un usuario.")
+    @commands.has_permissions(moderate_members=True)
+    async def untimeout(self, ctx, member: discord.Member):
+        try:
+            await member.timeout(None)
+            await ctx.send(embed=discord.Embed(title="Aislamiento Quitado", description=f"✅ **{member.name}** ya no está aislado.", color=discord.Color.green()))
+        except discord.Forbidden:
+            await ctx.send("❌ No tengo permisos.")
+
+    # Comando para cambiar el apodo de un usuario
+    @commands.hybrid_command(name="nick", description="Cambia el apodo de un usuario. Deja vacío para resetear.")
+    @commands.has_permissions(manage_nicknames=True)
+    async def nick(self, ctx, member: discord.Member, *, name: str = None):
+        if member.top_role >= ctx.author.top_role: 
+            return await ctx.send("❌ Rol insuficiente.")
+        try:
+            await member.edit(nick=name)
+            msg = f"✅ Apodo cambiado a **{name}**" if name else "✅ Apodo reseteado al original."
+            embed = discord.Embed(
+                title="Apodo Actualizado", 
+                description=msg, 
+                color=discord.Color.green())
+            
+            await ctx.send(embed=embed)
+        except discord.Forbidden:
+            await ctx.send("❌ No tengo permisos.")
+
+    # Comando para ver información de un usuario
+    @commands.hybrid_command(name="userinfo", description="Muestra información detallada de un usuario.")
+    @commands.has_permissions(manage_messages=True)
+    async def userinfo(self, ctx, member: discord.Member = None):
+        member = member or ctx.author
+        roles = [role.mention for role in member.roles if role.name != "@everyone"]
+        
+        embed = discord.Embed(title=f"Información de {member.name}", color=member.color)
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+        embed.add_field(name="🆔 ID", value=member.id, inline=True)
+        embed.add_field(name="📅 Cuenta Creada", value=member.created_at.strftime("%d/%m/%Y"), inline=True)
+        embed.add_field(name="📥 Se unió al servidor", value=member.joined_at.strftime("%d/%m/%Y"), inline=True)
+        embed.add_field(name=f"🎭 Roles ({len(roles)})", value=" ".join(roles) if roles else "Ninguno", inline=False)
+        
+        await ctx.send(embed=embed)
+
+    # --- COMANDOS DE CHAT Y CANALES ---
+
     # Comando para borrar mensajes
     @commands.hybrid_command(name="clear", description="Borra mensajes.")
     @commands.has_permissions(manage_messages=True)
@@ -76,6 +151,30 @@ class Moderation(commands.Cog):
         if amount < 1: 
             deleted = await ctx.channel.purge(limit=amount + 1)
         await ctx.send(f"🧹 **{len(deleted)-1}** mensajes borrados.", delete_after=5)
+
+    # Comando para bloquear un canal
+    @commands.hybrid_command(name="lock", description="Bloquea el canal para que nadie pueda escribir.")
+    @commands.has_permissions(manage_channels=True)
+    async def lock(self, ctx):
+        await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
+        await ctx.send(embed=discord.Embed(title="🔒 Canal Bloqueado", description="Nadie puede escribir hasta nuevo aviso.", color=discord.Color.red()))
+
+    # Comando para desbloquear un canal
+    @commands.hybrid_command(name="unlock", description="Desbloquea el canal para que todos puedan escribir.")
+    @commands.has_permissions(manage_channels=True)
+    async def unlock(self, ctx):
+        await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
+        await ctx.send(embed=discord.Embed(title="🔓 Canal Desbloqueado", description="Todos pueden escribir de nuevo.", color=discord.Color.green()))
+
+    # Comando para poner modo lento en un canal
+    @commands.hybrid_command(name="slowmode", description="Establece el modo lento del chat (en segundos).")
+    @commands.has_permissions(manage_channels=True)
+    async def slowmode(self, ctx, seconds: int):
+        await ctx.channel.edit(slowmode_delay=seconds)
+        if seconds > 0:
+            await ctx.send(f"🐢 Modo lento activado: **{seconds} segundos**.")
+        else:
+            await ctx.send("🐇 Modo lento desactivado.")
 
 async def setup(bot):
     await bot.add_cog(Moderation(bot))

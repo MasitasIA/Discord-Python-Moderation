@@ -10,19 +10,20 @@ class Logs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # --- EVENTOS ---
+    async def get_log_channel(self, guild):
+        logchannels = load_json("logchannels.json")
+        channel_id = logchannels.get(str(guild.id))
+        if channel_id:
+            return guild.get_channel(channel_id)
+        return None
+
+    # --- EVENTOS DE MODERACIÓN ---
 
     # Evento de logs para baneos
     @commands.Cog.listener()
     async def on_member_ban(self, guild, user):
-        logchannels = load_json("logchannels.json")
-        channel_id = logchannels.get(str(guild.id))
-        
-        if not channel_id:
-            return
-        
-        channel = guild.getchannel(channel_id)
-        if not channel:
+        channel = await self.get_log_channel(guild)
+        if not channel: 
             return
         
         ban_entry = None
@@ -31,11 +32,25 @@ class Logs(commands.Cog):
                 ban_entry = entry
                 break
         
-        embed = discord.Embed(
-            title="🔨 Usuario Baneado",
-            description=f"**{user.name}** ha sido baneado del servidor.",
-            color=discord.Color.red()
-        )
+        embed = discord.Embed(title="🔨 Usuario Baneado", color=discord.Color.red())
+        embed.add_field(name="Usuario", value=f"{user.name} (ID: {user.id})", inline=False)
+        if ban_entry:
+            embed.add_field(name="Razón", value=ban_entry.reason or "No especificada", inline=False)
+            embed.add_field(name="Moderador", value=ban_entry.user.mention, inline=True)
+        
+        await channel.send(embed=embed)
+
+        # Evento de logs para desbaneos
+        @commands.Cog.listener()
+        async def on_member_unban(self, guild, user):
+            channel = await self.get_log_channel(guild)
+            if not channel: 
+                return
+
+            embed = discord.Embed(title="🕊️ Usuario Desbaneado", 
+                                  description=f"**{user.name}** ha sido desbaneado del servidor.", 
+                                  color=discord.Color.green())
+            await channel.send(embed=embed)
 
         if ban_entry:
             embed.add_field(name="Razón", value=ban_entry.reason or "No especificada", inline=False)
@@ -50,14 +65,8 @@ class Logs(commands.Cog):
     # Evento de logs para expulsiones
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        logchannels = load_json("logchannels.json")
-        channel_id = logchannels.get(str(member.guild.id))
-        
-        if not channel_id:
-            return
-
-        channel = member.guild.get_channel(channel_id)
-        if not channel:
+        channel = await self.get_log_channel(member.guild)
+        if not channel: 
             return
         
         kick_entry = None
@@ -78,8 +87,68 @@ class Logs(commands.Cog):
 
         await channel.send(embed=embed)
 
+    # --- EVENTOS DE CHAT ---
+
+    # Evento de logs para mensajes eliminados
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        if message.author.bot: 
+            return
+        if not message.guild: 
+            return 
+        channel = await self.get_log_channel(message.guild)
+        if not channel: 
+            return
+
+        embed = discord.Embed(title="🗑️ Mensaje Borrado", color=discord.Color.dark_red())
+        embed.add_field(name="Autor", value=message.author.mention, inline=True)
+        embed.add_field(name="Canal", value=message.channel.mention, inline=True)
+        content = message.content if message.content else "*[Solo Imagen/Archivo]*"
+        embed.add_field(name="Contenido", value=content, inline=False)
+
+        await channel.send(embed=embed)
+
+    # Evento de logs para mensajes editados
+    @commands.Cog.listener()
+    async def on_message_edit(self, before, after):
+        if before.author.bot: 
+            return
+        if not before.guild: 
+            return
+        # Si el contenido es igual (ej: discord carga un link), ignoramos
+        if before.content == after.content: 
+            return
+
+        channel = await self.get_log_channel(before.guild)
+        if not channel: 
+            return
+
+        embed = discord.Embed(title="✏️ Mensaje Editado", color=discord.Color.blue())
+        embed.add_field(name="Autor", value=before.author.mention, inline=True)
+        embed.add_field(name="Canal", value=before.channel.mention, inline=True)
+        embed.add_field(name="Antes", value=before.content or "*[Vacio]*", inline=False)
+        embed.add_field(name="Después", value=after.content or "*[Vacio]*", inline=False)
+        # Añadimos un link para ir al mensaje editado
+        embed.add_field(name="Ir al mensaje", value=f"[Click Aquí]({after.jump_url})", inline=False)
+
+        await channel.send(embed=embed)
+
     # --- COMANDOS DE LOGS ---
-    
+
+    # Comando para ver la ayuda de logs
+    @commands.hybrid_command(name="loghelp", description="Muestra qué eventos registra el sistema de logs.")
+    async def loghelp(self, ctx):
+        embed = discord.Embed(
+            title="📜 Sistema de Logs",
+            description="El bot registrará automáticamente los siguientes eventos en el canal configurado:",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="🛡️ Moderación", value="• Baneos\n• Desbaneos\n• Expulsiones (Kicks)", inline=True)
+        embed.add_field(name="💬 Chat", value="• Mensajes Borrados\n• Mensajes Editados", inline=True)
+        
+        embed.set_footer(text="Canal actual: Usa /viewlogchannel")
+        await ctx.send(embed=embed)
+
     # Comando para establecer el canal de logs
     @commands.hybrid_command(name="setlogchannel", description="Establece el canal de logs del servidor.")
     @commands.has_permissions(administrator=True)

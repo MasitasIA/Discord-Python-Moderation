@@ -78,6 +78,24 @@ async def on_command_error(ctx, error):
     else:
         print(f"Error en comando: {error}")
 
+# --- COMANDOS DE ADMINISTRACIÓN DEL BOT ---
+
+# Comando para ver la ayuda del bot
+@bot.hybrid_command(name="help", description="Muestra los comandos disponibles del bot.")
+async def help(ctx):
+    embed = discord.Embed(
+        title="🤖 Ayuda del Bot",
+        description="Lista de comandos disponibles.",
+        color=discord.Color.blue()
+    )
+    embed.add_field(name="⚙️ Configuración", value="`/confighelp` - Muestra los comandos de configuración.", inline=False)
+    embed.add_field(name="🛡️ Moderación", value="`/modhelp` - Muestra los comandos de moderación.", inline=False)
+    embed.add_field(name="📜 Logs", value="`/loghelp` - Muestra los comandos de logs.", inline=False)
+    embed.add_field(name="👋 Welcome", value="`/welcomehelp` - Muestra los comandos de bienvenida.", inline=False)
+    
+    await ctx.send(embed=embed)
+
+# --- EJECUCIÓN DEL BOT ---
 if TOKEN:
     bot.run(TOKEN)
 else:

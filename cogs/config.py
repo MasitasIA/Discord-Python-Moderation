@@ -37,7 +37,29 @@ class Config(commands.Cog):
 
     # --- COMANDOS DE CONFIGURACIÓN ---
 
-    # Circuito para cambiar el prefijo del bot
+    # Comando para ver la ayuda de configuración
+    @commands.hybrid_command(name="confighelp", description="Muestra los comandos de configuración disponibles.")
+    async def confighelp(self, ctx):
+        embed = discord.Embed(
+            title="⚙️ Comandos de Configuración",
+            description="Lista de comandos para configurar el bot.",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Prefijo", value=(
+            "`/setprefix [nuevo_prefijo]` - Cambia el prefijo del bot."
+        ), inline=False)
+        
+        embed.add_field(name="Auto-Rol", value=(
+            "`/setautorole [rol]` - Establece el rol automático para humanos.\n"
+            "`/disableautorole` - Desactiva el auto-rol para humanos.\n"
+            "`/setbotrole [rol]` - Establece el rol automático para bots.\n"
+            "`/disablebotrole` - Desactiva el auto-rol para bots.\n"
+            "`/viewautorole` - Muestra los roles de auto-rol configurados."
+        ), inline=False)
+        
+        await ctx.send(embed=embed)
+
+    # Comando para cambiar el prefijo del bot
     @commands.hybrid_command(name="setprefix", description="Cambia el prefijo del bot.")
     @commands.has_permissions(administrator=True)
     async def setprefix(self, ctx, new_prefix: str):
@@ -58,7 +80,7 @@ class Config(commands.Cog):
         
         await ctx.send(f"✅ Auto-rol configurado: {role.mention}")
 
-    #  Comando para desactivar el rol automático para humanos
+    # Comando para desactivar el rol automático para humanos
     @commands.hybrid_command(name="disableautorole", description="Desactiva el auto-rol.")
     @commands.has_permissions(administrator=True)
     async def disableautorole(self, ctx):
@@ -70,7 +92,7 @@ class Config(commands.Cog):
         else:
             await ctx.send("⚠️ No había auto-rol configurado.")
 
-# Comando para desactivar el auto-rol para bots
+    # Comando para desactivar el auto-rol para bots
     @commands.hybrid_command(name="disablebotrole", description="Desactiva el auto-rol para bots en este servidor.")
     @commands.has_permissions(administrator=True)
     async def disablebotrole(self, ctx):

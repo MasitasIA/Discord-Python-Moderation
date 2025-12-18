@@ -56,6 +56,7 @@ class Welcome(commands.Cog):
                 await channel.send(farewell_message)
 
     # --- COMANDOS ---
+    
     # Comando para ver la ayuda de Bienvenida/Despedida
     @commands.hybrid_command(name="welcomehelp", description="Muestra la ayuda del sistema de bienvenida y despedida.")
     async def welcomehelp(self, ctx):
